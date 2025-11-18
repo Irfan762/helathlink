@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -8,15 +7,9 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading, userRole } = useAuth();
-  const [checking, setChecking] = useState(true);
 
-  useEffect(() => {
-    if (!loading) {
-      setChecking(false);
-    }
-  }, [loading]);
-
-  if (checking || loading) {
+  // Show loading state while authentication is being checked
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -27,10 +20,12 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
+  // After loading is complete, check authentication
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
+  // Check if user has clinic role
   if (userRole !== "clinic") {
     return <Navigate to="/admin-login" replace />;
   }
