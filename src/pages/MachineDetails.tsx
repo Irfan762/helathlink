@@ -12,11 +12,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ArrowLeft, ShoppingCart, Calendar, Shield, Wrench, Package } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const MachineDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const [showRentalDialog, setShowRentalDialog] = useState(false);
   const [rentalDuration, setRentalDuration] = useState("");
   const [rentalForm, setRentalForm] = useState({
@@ -68,33 +71,44 @@ const MachineDetails = () => {
     setTimeout(() => navigate("/machines"), 2000);
   };
 
-  const handleRentalSubmit = () => {
+  const handleRentalSubmit = async () => {
     if (!rentalForm.userName || !rentalForm.phone || !rentalForm.villageName || !rentalDuration) {
       toast.error("Please fill all fields");
       return;
     }
 
-    const booking = {
-      id: Date.now().toString(),
-      machineId: machine.id,
-      machineName: machine.machineName,
-      ...rentalForm,
-      rentalDuration,
-      totalPrice: calculateRentalPrice(),
-      status: "ongoing" as const,
-      bookingDate: new Date().toISOString(),
-    };
+    if (!user) {
+      toast.error("You must be logged in to make a booking");
+      return;
+    }
 
-    // Store in localStorage (simulating backend)
-    const existingBookings = JSON.parse(localStorage.getItem("rentalBookings") || "[]");
-    localStorage.setItem("rentalBookings", JSON.stringify([...existingBookings, booking]));
+    try {
+      const { error } = await supabase
+        .from("rental_requests")
+        .insert({
+          user_id: user.id,
+          machine_id: machine.id,
+          machine_name: machine.machineName,
+          user_name: rentalForm.userName,
+          phone: rentalForm.phone,
+          village_name: rentalForm.villageName,
+          rental_duration: rentalDuration,
+          total_price: calculateRentalPrice(),
+          status: "ongoing",
+        });
 
-    toast.success("Rental booking confirmed!", {
-      description: `You'll receive confirmation details shortly.`,
-    });
+      if (error) throw error;
 
-    setShowRentalDialog(false);
-    setTimeout(() => navigate("/rentals"), 2000);
+      toast.success("Rental booking confirmed!", {
+        description: `You'll receive confirmation details shortly.`,
+      });
+
+      setShowRentalDialog(false);
+      setTimeout(() => navigate("/rentals"), 2000);
+    } catch (error) {
+      console.error("Error creating rental booking:", error);
+      toast.error("Failed to create booking. Please try again.");
+    }
   };
 
   return (

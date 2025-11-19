@@ -3,25 +3,80 @@ import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RentalBooking } from "@/types";
 import { toast } from "sonner";
 import { Calendar, Phone, MapPin, Package, CheckCircle, Clock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+
+interface RentalBooking {
+  id: string;
+  machine_id: string;
+  machine_name: string;
+  user_name: string;
+  phone: string;
+  village_name: string;
+  rental_duration: string;
+  total_price: number;
+  status: "ongoing" | "completed" | "returned";
+  booking_date: string;
+}
 
 const Rentals = () => {
+  const { user, userRole, isAdmin } = useAuth();
   const [bookings, setBookings] = useState<RentalBooking[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedBookings = JSON.parse(localStorage.getItem("rentalBookings") || "[]");
-    setBookings(storedBookings);
-  }, []);
+    fetchBookings();
+  }, [user, isAdmin]);
 
-  const updateBookingStatus = (id: string, status: RentalBooking["status"]) => {
-    const updatedBookings = bookings.map((booking) =>
-      booking.id === id ? { ...booking, status } : booking
-    );
-    setBookings(updatedBookings);
-    localStorage.setItem("rentalBookings", JSON.stringify(updatedBookings));
-    toast.success(`Booking status updated to ${status}`);
+  const fetchBookings = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      let query = supabase.from("rental_requests").select("*");
+      
+      // Admin can see all bookings, clinic users see only their own
+      if (!isAdmin) {
+        query = query.eq("user_id", user.id);
+      }
+
+      const { data, error } = await query.order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setBookings((data || []) as RentalBooking[]);
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+      toast.error("Failed to load bookings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateBookingStatus = async (id: string, status: RentalBooking["status"]) => {
+    try {
+      const { error } = await supabase
+        .from("rental_requests")
+        .update({ status })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setBookings((prev) =>
+        prev.map((booking) =>
+          booking.id === id ? { ...booking, status } : booking
+        )
+      );
+
+      toast.success(`Booking status updated to ${status}`);
+    } catch (error) {
+      console.error("Error updating booking status:", error);
+      toast.error("Failed to update booking status");
+    }
   };
 
   const getStatusColor = (status: RentalBooking["status"]) => {
@@ -50,6 +105,18 @@ const Rentals = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container mx-auto px-4 py-8 text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading bookings...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -57,7 +124,9 @@ const Rentals = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Rental Bookings</h1>
-          <p className="text-muted-foreground">Manage all your equipment rental bookings</p>
+          <p className="text-muted-foreground">
+            {isAdmin ? "Manage all rental bookings" : "Manage your equipment rental bookings"}
+          </p>
         </div>
 
         {bookings.length === 0 ? (
@@ -75,12 +144,12 @@ const Rentals = () => {
               <Card key={booking.id}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-xl">{booking.machineName}</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Booking ID: {booking.id}
-                      </p>
-                    </div>
+                  <div>
+                    <CardTitle className="text-xl">{booking.machine_name}</CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Booking ID: {booking.id.slice(0, 8)}
+                    </p>
+                  </div>
                     <Badge className={getStatusColor(booking.status)}>
                       <span className="flex items-center gap-1">
                         {getStatusIcon(booking.status)}
@@ -95,29 +164,29 @@ const Rentals = () => {
                       <div className="flex items-center gap-2 text-sm">
                         <Phone className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">Contact:</span>
-                        <span>{booking.userName} - {booking.phone}</span>
+                        <span>{booking.user_name} - {booking.phone}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">Location:</span>
-                        <span>{booking.villageName}</span>
+                        <span>{booking.village_name}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">Duration:</span>
-                        <span>{booking.rentalDuration.replace("-", " ")}</span>
+                        <span>{booking.rental_duration.replace("-", " ")}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Package className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">Booked On:</span>
-                        <span>{new Date(booking.bookingDate).toLocaleDateString()}</span>
+                        <span>{new Date(booking.booking_date).toLocaleDateString()}</span>
                       </div>
                     </div>
 
                     <div className="space-y-3">
                       <div className="p-4 bg-muted rounded-lg">
                         <p className="text-sm text-muted-foreground mb-1">Total Amount</p>
-                        <p className="text-2xl font-bold text-primary">₹{booking.totalPrice.toLocaleString()}</p>
+                        <p className="text-2xl font-bold text-primary">₹{booking.total_price.toLocaleString()}</p>
                       </div>
 
                       <div className="flex gap-2">
