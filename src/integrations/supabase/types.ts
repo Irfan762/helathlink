@@ -44,6 +44,54 @@ export type Database = {
         }
         Relationships: []
       }
+      rental_requests: {
+        Row: {
+          booking_date: string
+          created_at: string
+          id: string
+          machine_id: string
+          machine_name: string
+          phone: string
+          rental_duration: string
+          status: string
+          total_price: number
+          updated_at: string
+          user_id: string
+          user_name: string
+          village_name: string
+        }
+        Insert: {
+          booking_date?: string
+          created_at?: string
+          id?: string
+          machine_id: string
+          machine_name: string
+          phone: string
+          rental_duration: string
+          status?: string
+          total_price: number
+          updated_at?: string
+          user_id: string
+          user_name: string
+          village_name: string
+        }
+        Update: {
+          booking_date?: string
+          created_at?: string
+          id?: string
+          machine_id?: string
+          machine_name?: string
+          phone?: string
+          rental_duration?: string
+          status?: string
+          total_price?: number
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+          village_name?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
