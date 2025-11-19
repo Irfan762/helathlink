@@ -8,7 +8,7 @@ interface AdminProtectedRouteProps {
 const AdminProtectedRoute = ({ children }: AdminProtectedRouteProps) => {
   const { user, loading, userRole } = useAuth();
 
-  // Show loading state while authentication is being checked
+  // Show loading state while authentication and role are being checked
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -20,14 +20,14 @@ const AdminProtectedRoute = ({ children }: AdminProtectedRouteProps) => {
     );
   }
 
-  // After loading is complete, check authentication
+  // After loading is complete, require an authenticated session
   if (!user) {
     return <Navigate to="/admin-login" replace />;
   }
 
-  // Check if user has admin role
+  // Only allow access if the user has the admin role
   if (userRole !== "admin") {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
