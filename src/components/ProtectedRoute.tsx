@@ -6,9 +6,9 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading, userRole } = useAuth();
+  const { user, loading } = useAuth();
 
-  // Show loading state while authentication is being checked
+  // Show loading state while authentication and role are being checked
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -20,16 +20,12 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  // After loading is complete, check authentication
+  // After loading is complete, require an authenticated session
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // Check if user has clinic role
-  if (userRole !== "clinic") {
-    return <Navigate to="/admin-login" replace />;
-  }
-
+  // Both admin and clinic roles can access routes wrapped with this component
   return <>{children}</>;
 };
 
