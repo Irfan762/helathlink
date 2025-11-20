@@ -44,8 +44,39 @@ export type Database = {
         }
         Relationships: []
       }
+      purchases: {
+        Row: {
+          created_at: string
+          id: string
+          machine_id: string
+          machine_name: string
+          price: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          machine_id: string
+          machine_name: string
+          price: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          machine_id?: string
+          machine_name?: string
+          price?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       rental_requests: {
         Row: {
+          admin_status: string
           booking_date: string
           created_at: string
           id: string
@@ -61,6 +92,7 @@ export type Database = {
           village_name: string
         }
         Insert: {
+          admin_status?: string
           booking_date?: string
           created_at?: string
           id?: string
@@ -76,6 +108,7 @@ export type Database = {
           village_name: string
         }
         Update: {
+          admin_status?: string
           booking_date?: string
           created_at?: string
           id?: string
@@ -89,6 +122,45 @@ export type Database = {
           user_id?: string
           user_name?: string
           village_name?: string
+        }
+        Relationships: []
+      }
+      rentals: {
+        Row: {
+          created_at: string
+          id: string
+          machine_id: string
+          machine_name: string
+          rental_duration: string
+          start_date: string
+          status: string
+          total_price: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          machine_id: string
+          machine_name: string
+          rental_duration: string
+          start_date?: string
+          status?: string
+          total_price: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          machine_id?: string
+          machine_name?: string
+          rental_duration?: string
+          start_date?: string
+          status?: string
+          total_price?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
