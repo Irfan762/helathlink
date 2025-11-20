@@ -58,6 +58,12 @@ const Rentals = () => {
   };
 
   const updateBookingStatus = async (id: string, status: RentalBooking["status"]) => {
+    // Security check: only admins can update booking status
+    if (!isAdmin) {
+      toast.error("Unauthorized: Only admins can update booking status");
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("rental_requests")
@@ -189,38 +195,40 @@ const Rentals = () => {
                         <p className="text-2xl font-bold text-primary">₹{booking.total_price.toLocaleString()}</p>
                       </div>
 
-                      <div className="flex gap-2">
-                        {booking.status === "ongoing" && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateBookingStatus(booking.id, "completed")}
-                              className="flex-1"
-                            >
-                              Mark Completed
-                            </Button>
+                      {isAdmin && (
+                        <div className="flex gap-2">
+                          {booking.status === "ongoing" && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => updateBookingStatus(booking.id, "completed")}
+                                className="flex-1"
+                              >
+                                Mark Completed
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => updateBookingStatus(booking.id, "returned")}
+                                className="flex-1"
+                              >
+                                Mark Returned
+                              </Button>
+                            </>
+                          )}
+                          {booking.status === "completed" && (
                             <Button
                               variant="secondary"
                               size="sm"
                               onClick={() => updateBookingStatus(booking.id, "returned")}
-                              className="flex-1"
+                              className="w-full"
                             >
-                              Mark Returned
+                              Mark as Returned
                             </Button>
-                          </>
-                        )}
-                        {booking.status === "completed" && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => updateBookingStatus(booking.id, "returned")}
-                            className="w-full"
-                          >
-                            Mark as Returned
-                          </Button>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
