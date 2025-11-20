@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { ArrowLeft, ShoppingCart, Calendar, Shield, Wrench, Package } from "lucide-react";
+import { ArrowLeft, ShoppingCart, Calendar, Shield, Wrench, Package, CheckCircle, XCircle, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -21,14 +21,44 @@ const MachineDetails = () => {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [showRentalDialog, setShowRentalDialog] = useState(false);
+  const [showRentNowDialog, setShowRentNowDialog] = useState(false);
   const [rentalDuration, setRentalDuration] = useState("");
   const [rentalForm, setRentalForm] = useState({
     userName: "",
     phone: "",
     villageName: "",
   });
+  const [rentalRequest, setRentalRequest] = useState<any>(null);
+  const [loadingRequest, setLoadingRequest] = useState(true);
 
   const machine = machines.find((m) => m.id === id);
+
+  // Check if user has an existing rental request for this machine
+  useEffect(() => {
+    const checkRentalRequest = async () => {
+      if (!user || !machine) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from("rental_requests")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("machine_id", machine.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) throw error;
+        setRentalRequest(data);
+      } catch (error) {
+        console.error("Error checking rental request:", error);
+      } finally {
+        setLoadingRequest(false);
+      }
+    };
+
+    checkRentalRequest();
+  }, [user, machine]);
 
   useEffect(() => {
     if (searchParams.get("action") === "rent") {
@@ -64,21 +94,43 @@ const MachineDetails = () => {
     }
   };
 
-  const handleBuy = () => {
-    toast.success("Purchase request submitted!", {
-      description: `${machine.machineName} will be processed for delivery.`,
-    });
-    setTimeout(() => navigate("/machines"), 2000);
+  const handleBuy = async () => {
+    if (!user) {
+      toast.error("You must be logged in to make a purchase");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("purchases")
+        .insert({
+          user_id: user.id,
+          machine_id: machine.id,
+          machine_name: machine.machineName,
+          price: machine.price,
+          status: "purchased",
+        });
+
+      if (error) throw error;
+
+      toast.success("Purchase confirmed!", {
+        description: `${machine.machineName} has been purchased successfully.`,
+      });
+      setTimeout(() => navigate("/machines"), 2000);
+    } catch (error) {
+      console.error("Error creating purchase:", error);
+      toast.error("Failed to complete purchase. Please try again.");
+    }
   };
 
-  const handleRentalSubmit = async () => {
+  const handleRentalRequestSubmit = async () => {
     if (!rentalForm.userName || !rentalForm.phone || !rentalForm.villageName || !rentalDuration) {
       toast.error("Please fill all fields");
       return;
     }
 
     if (!user) {
-      toast.error("You must be logged in to make a booking");
+      toast.error("You must be logged in to make a rental request");
       return;
     }
 
@@ -94,20 +146,61 @@ const MachineDetails = () => {
           village_name: rentalForm.villageName,
           rental_duration: rentalDuration,
           total_price: calculateRentalPrice(),
+          admin_status: "pending",
+        });
+
+      if (error) throw error;
+
+      toast.success("Rental request submitted!", {
+        description: `Your request is pending admin approval.`,
+      });
+
+      setShowRentalDialog(false);
+      // Refresh the request status
+      const { data } = await supabase
+        .from("rental_requests")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("machine_id", machine.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      setRentalRequest(data);
+    } catch (error) {
+      console.error("Error creating rental request:", error);
+      toast.error("Failed to create request. Please try again.");
+    }
+  };
+
+  const handleRentNow = async () => {
+    if (!user || !rentalRequest) {
+      toast.error("Invalid rental request");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("rentals")
+        .insert({
+          user_id: user.id,
+          machine_id: machine.id,
+          machine_name: machine.machineName,
+          rental_duration: rentalRequest.rental_duration,
+          total_price: rentalRequest.total_price,
           status: "ongoing",
         });
 
       if (error) throw error;
 
-      toast.success("Rental booking confirmed!", {
-        description: `You'll receive confirmation details shortly.`,
+      toast.success("Rental confirmed!", {
+        description: `Your rental has been activated.`,
       });
 
-      setShowRentalDialog(false);
+      setShowRentNowDialog(false);
       setTimeout(() => navigate("/rentals"), 2000);
     } catch (error) {
-      console.error("Error creating rental booking:", error);
-      toast.error("Failed to create booking. Please try again.");
+      console.error("Error creating rental:", error);
+      toast.error("Failed to confirm rental. Please try again.");
     }
   };
 
@@ -199,15 +292,38 @@ const MachineDetails = () => {
             </div>
 
             {machine.availability && (
-              <div className="flex gap-3 pt-4">
-                <Button size="lg" className="flex-1" onClick={handleBuy}>
+              <div className="space-y-3 pt-4">
+                <Button size="lg" className="w-full" onClick={handleBuy}>
                   <ShoppingCart className="h-5 w-5 mr-2" />
                   Buy Now
                 </Button>
-                <Button size="lg" variant="secondary" className="flex-1" onClick={() => setShowRentalDialog(true)}>
-                  <Calendar className="h-5 w-5 mr-2" />
-                  Rent Now
-                </Button>
+
+                {loadingRequest ? (
+                  <Button size="lg" variant="secondary" className="w-full" disabled>
+                    <Clock className="h-5 w-5 mr-2 animate-spin" />
+                    Loading...
+                  </Button>
+                ) : !rentalRequest ? (
+                  <Button size="lg" variant="secondary" className="w-full" onClick={() => setShowRentalDialog(true)}>
+                    <Calendar className="h-5 w-5 mr-2" />
+                    Request Rental
+                  </Button>
+                ) : rentalRequest.admin_status === "pending" ? (
+                  <Button size="lg" variant="outline" className="w-full" disabled>
+                    <Clock className="h-5 w-5 mr-2" />
+                    Request Pending Approval
+                  </Button>
+                ) : rentalRequest.admin_status === "approved" ? (
+                  <Button size="lg" variant="default" className="w-full" onClick={() => setShowRentNowDialog(true)}>
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    Rent Now (Approved)
+                  </Button>
+                ) : (
+                  <Button size="lg" variant="destructive" className="w-full" disabled>
+                    <XCircle className="h-5 w-5 mr-2" />
+                    Request Rejected
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -330,8 +446,8 @@ const MachineDetails = () => {
             <Button variant="outline" onClick={() => setShowRentalDialog(false)} className="flex-1">
               Cancel
             </Button>
-            <Button onClick={handleRentalSubmit} className="flex-1">
-              Confirm Booking
+            <Button onClick={handleRentalRequestSubmit} className="flex-1">
+              Submit Request
             </Button>
           </div>
         </DialogContent>

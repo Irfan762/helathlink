@@ -8,15 +8,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { machines as initialMachines } from "@/data/machines";
 import { Machine } from "@/types";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, Package } from "lucide-react";
+import { Plus, Edit, Trash2, Package, CheckCircle, XCircle, Clock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Admin = () => {
   const [machines, setMachines] = useState<Machine[]>(initialMachines);
   const [showDialog, setShowDialog] = useState(false);
   const [editingMachine, setEditingMachine] = useState<Machine | null>(null);
+  const [rentalRequests, setRentalRequests] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<any[]>([]);
   const [formData, setFormData] = useState<Partial<Machine>>({
     machineName: "",
     type: "",
@@ -31,6 +35,74 @@ const Admin = () => {
     warrantyInfo: "",
     rentalPricing: { perDay: 0, perWeek: 0, perMonth: 0 },
   });
+
+  // Fetch rental requests and purchases
+  useEffect(() => {
+    fetchRentalRequests();
+    fetchPurchases();
+  }, []);
+
+  const fetchRentalRequests = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("rental_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setRentalRequests(data || []);
+    } catch (error) {
+      console.error("Error fetching rental requests:", error);
+    }
+  };
+
+  const fetchPurchases = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("purchases")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setPurchases(data || []);
+    } catch (error) {
+      console.error("Error fetching purchases:", error);
+    }
+  };
+
+  const handleApproveRequest = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("rental_requests")
+        .update({ admin_status: "approved" })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Request approved");
+      fetchRentalRequests();
+    } catch (error) {
+      console.error("Error approving request:", error);
+      toast.error("Failed to approve request");
+    }
+  };
+
+  const handleRejectRequest = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("rental_requests")
+        .update({ admin_status: "rejected" })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Request rejected");
+      fetchRentalRequests();
+    } catch (error) {
+      console.error("Error rejecting request:", error);
+      toast.error("Failed to reject request");
+    }
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem("adminMachines");
@@ -109,15 +181,26 @@ const Admin = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold mb-2">Admin Panel</h1>
-            <p className="text-muted-foreground">Manage your medical equipment inventory</p>
+            <p className="text-muted-foreground">Manage your medical equipment platform</p>
           </div>
-          <Button onClick={() => { resetForm(); setShowDialog(true); }}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add New Machine
-          </Button>
         </div>
 
-        <div className="grid gap-4">
+        <Tabs defaultValue="machines" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="machines">Machines</TabsTrigger>
+            <TabsTrigger value="rental-requests">Rental Requests</TabsTrigger>
+            <TabsTrigger value="purchases">Purchases</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="machines" className="space-y-4">
+            <div className="flex justify-end">
+              <Button onClick={() => { resetForm(); setShowDialog(true); }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add New Machine
+              </Button>
+            </div>
+
+            <div className="grid gap-4">
           {machines.map((machine) => (
             <Card key={machine.id}>
               <CardContent className="pt-6">
@@ -169,7 +252,127 @@ const Admin = () => {
               </CardContent>
             </Card>
           ))}
-        </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="rental-requests" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pending Rental Requests</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {rentalRequests.filter(r => r.admin_status === "pending").length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No pending requests</p>
+                ) : (
+                  <div className="space-y-4">
+                    {rentalRequests.filter(r => r.admin_status === "pending").map((request) => (
+                      <Card key={request.id}>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <h3 className="font-bold text-lg">{request.machine_name}</h3>
+                              <div className="text-sm text-muted-foreground space-y-1">
+                                <p>User: {request.user_name}</p>
+                                <p>Phone: {request.phone}</p>
+                                <p>Location: {request.village_name}</p>
+                                <p>Duration: {request.rental_duration}</p>
+                                <p className="font-bold text-primary">Total: ₹{request.total_price.toLocaleString()}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleApproveRequest(request.id)}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                onClick={() => handleRejectRequest(request.id)}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>All Requests History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {rentalRequests.map((request) => (
+                    <Card key={request.id}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-lg">{request.machine_name}</h3>
+                              <Badge variant={
+                                request.admin_status === "approved" ? "default" :
+                                request.admin_status === "rejected" ? "destructive" : "secondary"
+                              }>
+                                {request.admin_status}
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground space-y-1">
+                              <p>User: {request.user_name}</p>
+                              <p>Duration: {request.rental_duration}</p>
+                              <p>Total: ₹{request.total_price.toLocaleString()}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="purchases" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>All Purchases</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {purchases.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No purchases yet</p>
+                ) : (
+                  <div className="space-y-4">
+                    {purchases.map((purchase) => (
+                      <Card key={purchase.id}>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <h3 className="font-bold text-lg">{purchase.machine_name}</h3>
+                              <div className="text-sm text-muted-foreground space-y-1">
+                                <p>Price: ₹{purchase.price.toLocaleString()}</p>
+                                <p>Date: {new Date(purchase.created_at).toLocaleDateString()}</p>
+                                <Badge>{purchase.status}</Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
