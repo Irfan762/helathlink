@@ -11,6 +11,8 @@ import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import AdminLogin from "./pages/AdminLogin";
 import ClinicLogin from "./pages/ClinicLogin";
+import PaymentPage from "./pages/PaymentPage";
+import PaymentSuccess from "./pages/PaymentSuccess";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
@@ -30,6 +32,8 @@ const App = () => (
           <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
           <Route path="/machines" element={<ProtectedRoute><Machines /></ProtectedRoute>} />
           <Route path="/machines/:id" element={<ProtectedRoute><MachineDetails /></ProtectedRoute>} />
+          <Route path="/payment/:id" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+          <Route path="/payment-success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
           <Route path="/rentals" element={<ProtectedRoute><Rentals /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminProtectedRoute><Admin /></AdminProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

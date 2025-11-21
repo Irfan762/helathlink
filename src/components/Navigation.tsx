@@ -19,7 +19,7 @@ const Navigation = () => {
   const links = [
     { to: "/", label: "Home", icon: Home },
     { to: "/machines", label: "Machines", icon: Package },
-    { to: "/rentals", label: "Rentals", icon: Calendar },
+    ...(userRole === "clinic" ? [{ to: "/rentals", label: "Rentals", icon: Calendar }] : []),
     ...(userRole === "admin" ? [{ to: "/admin", label: "Admin", icon: Settings }] : []),
   ];
 

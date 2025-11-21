@@ -19,7 +19,7 @@ const MachineDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [showRentalDialog, setShowRentalDialog] = useState(false);
   const [showRentNowDialog, setShowRentNowDialog] = useState(false);
   const [rentalDuration, setRentalDuration] = useState("");
@@ -101,25 +101,24 @@ const MachineDetails = () => {
     }
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("purchases")
         .insert({
           user_id: user.id,
           machine_id: machine.id,
           machine_name: machine.machineName,
           price: machine.price,
-          status: "purchased",
-        });
+          status: "pending_payment",
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
-      toast.success("Purchase confirmed!", {
-        description: `${machine.machineName} has been purchased successfully.`,
-      });
-      setTimeout(() => navigate("/machines"), 2000);
+      navigate(`/payment/${data.id}`);
     } catch (error) {
       console.error("Error creating purchase:", error);
-      toast.error("Failed to complete purchase. Please try again.");
+      toast.error("Failed to initiate purchase. Please try again.");
     }
   };
 
@@ -298,31 +297,35 @@ const MachineDetails = () => {
                   Buy Now
                 </Button>
 
-                {loadingRequest ? (
-                  <Button size="lg" variant="secondary" className="w-full" disabled>
-                    <Clock className="h-5 w-5 mr-2 animate-spin" />
-                    Loading...
-                  </Button>
-                ) : !rentalRequest ? (
-                  <Button size="lg" variant="secondary" className="w-full" onClick={() => setShowRentalDialog(true)}>
-                    <Calendar className="h-5 w-5 mr-2" />
-                    Request Rental
-                  </Button>
-                ) : rentalRequest.admin_status === "pending" ? (
-                  <Button size="lg" variant="outline" className="w-full" disabled>
-                    <Clock className="h-5 w-5 mr-2" />
-                    Request Pending Approval
-                  </Button>
-                ) : rentalRequest.admin_status === "approved" ? (
-                  <Button size="lg" variant="default" className="w-full" onClick={() => setShowRentNowDialog(true)}>
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    Rent Now (Approved)
-                  </Button>
-                ) : (
-                  <Button size="lg" variant="destructive" className="w-full" disabled>
-                    <XCircle className="h-5 w-5 mr-2" />
-                    Request Rejected
-                  </Button>
+                {!isAdmin && (
+                  <>
+                    {loadingRequest ? (
+                      <Button size="lg" variant="secondary" className="w-full" disabled>
+                        <Clock className="h-5 w-5 mr-2 animate-spin" />
+                        Loading...
+                      </Button>
+                    ) : !rentalRequest ? (
+                      <Button size="lg" variant="secondary" className="w-full" onClick={() => setShowRentalDialog(true)}>
+                        <Calendar className="h-5 w-5 mr-2" />
+                        Request Rental
+                      </Button>
+                    ) : rentalRequest.admin_status === "pending" ? (
+                      <Button size="lg" variant="outline" className="w-full" disabled>
+                        <Clock className="h-5 w-5 mr-2" />
+                        Request Pending Approval
+                      </Button>
+                    ) : rentalRequest.admin_status === "approved" ? (
+                      <Button size="lg" variant="default" className="w-full" onClick={() => setShowRentNowDialog(true)}>
+                        <CheckCircle className="h-5 w-5 mr-2" />
+                        Rent Now (Approved)
+                      </Button>
+                    ) : (
+                      <Button size="lg" variant="destructive" className="w-full" disabled>
+                        <XCircle className="h-5 w-5 mr-2" />
+                        Request Rejected
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             )}
